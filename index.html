@@ -1,0 +1,1097 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Play the classic Dots and Boxes game in your browser with 2 to 4 players.">
+<title>Dots and Boxes</title>
+<style>
+  :root {
+    --bg: #f5f7fb;
+    --surface: #ffffff;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --dot: #1e293b;
+    --line: #334155;
+    --guide: #e5e9f0;
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    --danger: #dc2626;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(15, 23, 42, .06), 0 6px 24px rgba(15, 23, 42, .07);
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh; min-height: 100dvh;
+    background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px; line-height: 1.5;
+    -webkit-tap-highlight-color: transparent;
+  }
+  [hidden] { display: none !important; }
+  h1, h2, h3 { line-height: 1.2; margin: 0; }
+  .visually-hidden {
+    position: absolute !important; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap; border: 0; padding: 0; margin: -1px;
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    font: inherit; font-size: 15px; font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 40px; padding: 8px 16px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    cursor: pointer; transition: background .15s, border-color .15s, transform .1s, box-shadow .15s;
+    touch-action: manipulation; white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { background: #f1f5f9; border-color: #cbd5e1; }
+  .btn:active:not(:disabled) { transform: scale(.97); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn:focus-visible, input:focus-visible, summary:focus-visible, .seg label:focus-within {
+    outline: 3px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset: 2px;
+  }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .btn.primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
+  .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn.danger:hover:not(:disabled) { background: #b91c1c; }
+  .btn.big { min-height: 52px; padding: 12px 28px; font-size: 17px; width: 100%; }
+  .btn.icon { padding: 8px 12px; }
+  .btn[aria-pressed="false"] { color: var(--muted); }
+
+  /* ---------- Setup screen ---------- */
+  #setup { padding: 24px 16px 48px; display: flex; justify-content: center; }
+  .setup-card {
+    width: 100%; max-width: 560px; background: var(--surface); border-radius: 20px;
+    box-shadow: var(--shadow); padding: 28px 24px;
+  }
+  .title { font-size: clamp(30px, 7vw, 40px); font-weight: 800; letter-spacing: -.02em; text-align: center; }
+  .title-dots { display: flex; justify-content: center; gap: 8px; margin: 10px 0 4px; }
+  .title-dots span { width: 10px; height: 10px; border-radius: 50%; }
+  .tagline { text-align: center; color: var(--muted); margin: 4px 0 20px; }
+  fieldset { border: 0; padding: 0; margin: 0 0 22px; min-width: 0; }
+  legend { font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 10px; padding: 0; }
+  .seg { display: flex; gap: 8px; }
+  .seg label { flex: 1; position: relative; border-radius: 999px; }
+  .seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .seg span {
+    display: flex; align-items: center; justify-content: center; min-height: 44px;
+    border: 1px solid var(--border); border-radius: 999px; font-weight: 600; cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .seg input:checked + span { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .player-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .player-row .num { width: 22px; color: var(--muted); font-weight: 700; text-align: center; flex: none; }
+  .color-input {
+    flex: none; width: 44px; height: 44px; padding: 0; border: 1px solid var(--border);
+    border-radius: 12px; background: none; cursor: pointer; overflow: hidden;
+  }
+  .color-input::-webkit-color-swatch-wrapper { padding: 4px; }
+  .color-input::-webkit-color-swatch { border: 0; border-radius: 8px; }
+  .color-input::-moz-color-swatch { border: 0; border-radius: 8px; }
+  .text-input, .num-input {
+    font: inherit; min-height: 44px; padding: 8px 14px; border: 1px solid var(--border);
+    border-radius: 12px; background: #fff; color: var(--text); width: 100%; min-width: 0;
+  }
+  .text-input:focus, .num-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent); }
+  [aria-invalid="true"] { border-color: var(--danger) !important; }
+  .dims { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .dim label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .stepper { display: flex; align-items: center; gap: 6px; }
+  .stepper .btn { flex: none; width: 44px; min-height: 44px; padding: 0; font-size: 20px; }
+  .num-input { text-align: center; -moz-appearance: textfield; appearance: textfield; padding: 8px 4px; }
+  .num-input::-webkit-outer-spin-button, .num-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .presets .btn { min-height: 34px; padding: 4px 12px; font-size: 14px; }
+  .board-info { margin: 10px 0 0; color: var(--muted); font-size: 14px; }
+  .error {
+    color: var(--danger); background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px;
+    padding: 10px 14px; margin: 0 0 16px; font-size: 14px;
+  }
+  .error ul { margin: 0; padding-left: 18px; }
+  .rules-box { margin-top: 22px; border-top: 1px solid var(--border); padding-top: 16px; }
+  .rules-box summary { cursor: pointer; font-weight: 700; padding: 4px 0; border-radius: 6px; }
+  .rules { font-size: 15px; }
+  .rules h3 { font-size: 15px; margin: 14px 0 4px; }
+  .rules ul, .rules ol { margin: 4px 0; padding-left: 20px; }
+  .rules li { margin: 3px 0; }
+  .rules kbd { font: 12px ui-monospace, Menlo, Consolas, monospace; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 1px 5px; background: #f8fafc; }
+
+  /* ---------- Game screen ---------- */
+  #game {
+    height: 100vh; height: 100dvh; display: flex; flex-direction: column;
+    gap: 10px; padding: 12px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    max-width: 1200px; margin: 0 auto;
+  }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .brand { font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 6px; }
+  .scoreboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+  .player-card {
+    --pc: #888;
+    position: relative; display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 2px solid transparent; border-radius: var(--radius);
+    padding: 8px 12px; box-shadow: var(--shadow); transition: border-color .2s, transform .2s, background .2s;
+    min-width: 0;
+  }
+  .player-card .swatch { width: 14px; height: 14px; border-radius: 50%; background: var(--pc); flex: none; }
+  .player-card .pname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+  .player-card .pscore { font-weight: 800; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .player-card .turn-badge {
+    position: absolute; top: -9px; left: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; color: #fff; background: var(--pc); border-radius: 999px; padding: 1px 8px; opacity: 0;
+    transition: opacity .2s;
+  }
+  .player-card.active { border-color: var(--pc); background: color-mix(in srgb, var(--pc) 8%, white); transform: translateY(-1px); }
+  .player-card.active .turn-badge { opacity: 1; }
+  .status {
+    display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 28px;
+    font-weight: 600; text-align: center; flex-wrap: wrap;
+  }
+  .status .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; }
+  .status .link { font: inherit; font-weight: 700; color: var(--primary); background: none; border: 0; cursor: pointer; text-decoration: underline; padding: 0; }
+  .board-wrap {
+    flex: 1; min-height: 220px; display: flex; align-items: center; justify-content: center;
+    background: var(--surface); border-radius: 20px; box-shadow: var(--shadow); padding: 8px; position: relative;
+  }
+  #board { width: 100%; height: 100%; display: block; touch-action: manipulation; border-radius: 14px; }
+  #board:focus { outline: none; }
+  #board:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 40%, transparent); }
+  .hint { margin: 0; text-align: center; color: var(--muted); font-size: 13px; }
+  @media (hover: none) { .kbd-hint { display: none; } }
+
+  /* SVG board elements */
+  .guide { stroke: var(--guide); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 2 5; }
+  .edge { stroke: var(--line); stroke-width: 6; stroke-linecap: round; }
+  .edge.last { stroke-width: 7; }
+  .dot { fill: var(--dot); }
+  .preview { stroke-width: 6; stroke-linecap: round; opacity: .4; pointer-events: none; }
+  .hit { fill: transparent; cursor: pointer; }
+  .hit.taken { cursor: default; }
+  .box-label { font-weight: 800; dominant-baseline: central; text-anchor: middle; pointer-events: none; user-select: none; }
+  .cursor { fill: none; stroke: var(--primary); stroke-width: 3; opacity: 0; pointer-events: none; transition: opacity .15s; }
+  #board:focus-visible .cursor, #board.kbd .cursor { opacity: 1; }
+  .cursor.pending { stroke-dasharray: 4 3; }
+  .shake { animation: shake .3s; }
+  @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
+  body.anim .edge.draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .22s ease-out forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  body.anim .box.pop { transform-box: fill-box; transform-origin: center; animation: pop .35s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes pop { from { transform: scale(.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  body.anim .player-card.bump .pscore { animation: bump .35s; }
+  @keyframes bump { 50% { transform: scale(1.35); } }
+
+  /* ---------- Dialogs ---------- */
+  dialog {
+    border: 0; border-radius: 20px; padding: 24px; width: min(92vw, 440px);
+    box-shadow: 0 20px 60px rgba(15, 23, 42, .25); color: var(--text); background: var(--surface);
+  }
+  dialog::backdrop { background: rgba(15, 23, 42, .4); }
+  body.anim dialog[open] { animation: dlg .2s ease-out; }
+  @keyframes dlg { from { transform: translateY(8px) scale(.98); opacity: 0; } }
+  dialog h2 { font-size: 22px; margin-bottom: 8px; }
+  dialog p { margin: 0 0 12px; color: var(--muted); }
+  .dlg-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 18px; }
+  .dlg-actions.stack .btn { flex: 1; }
+  #rulesDialog { width: min(92vw, 560px); max-height: 85vh; }
+  .result-head { text-align: center; }
+  .winner-swatch { width: 56px; height: 56px; border-radius: 16px; margin: 4px auto 12px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 24px; }
+  .winner-swatch.tie { background: conic-gradient(var(--c1, #888) 0 50%, var(--c2, #aaa) 0); }
+  .result-list { list-style: none; margin: 14px 0 6px; padding: 0; }
+  .result-list li { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px; }
+  .result-list li:nth-child(odd) { background: #f8fafc; }
+  .result-list .rank { width: 20px; color: var(--muted); font-weight: 700; }
+  .result-list .swatch { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+  .result-list .n { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .result-list .s { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .result-list li.top .n::after { content: " ★"; color: #f59e0b; }
+  .total { text-align: center; color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+
+  @media (max-width: 600px) {
+    .setup-card { padding: 22px 16px; }
+    .dims { grid-template-columns: 1fr; }
+    #game { gap: 8px; padding-top: 8px; }
+    .brand { font-size: 17px; }
+    .btn { font-size: 14px; min-height: 38px; padding: 6px 12px; }
+    .toolbar .label { display: none; }
+    .player-card { padding: 6px 10px; }
+    .player-card .pscore { font-size: 19px; }
+    .scoreboard { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; }
+  }
+</style>
+</head>
+<body class="anim">
+
+<!-- ======================= SETUP SCREEN ======================= -->
+<main id="setup">
+  <div class="setup-card">
+    <h1 class="title">Dots and Boxes</h1>
+    <div class="title-dots" aria-hidden="true">
+      <span style="background:#2563eb"></span><span style="background:#e11d48"></span><span style="background:#16a34a"></span><span style="background:#d97706"></span>
+    </div>
+    <p class="tagline">The classic pencil-and-paper game for 2&ndash;4 players.</p>
+
+    <form id="setupForm" novalidate>
+      <fieldset>
+        <legend>Number of players</legend>
+        <div class="seg" role="radiogroup" aria-label="Number of players">
+          <label><input type="radio" name="numPlayers" value="2"><span>2 players</span></label>
+          <label><input type="radio" name="numPlayers" value="3"><span>3 players</span></label>
+          <label><input type="radio" name="numPlayers" value="4"><span>4 players</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Players &amp; colours</legend>
+        <div id="playerRows"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Board size (in dots)</legend>
+        <div class="dims">
+          <div class="dim">
+            <label for="cols">Horizontal dots (width)</label>
+            <div class="stepper">
+              <button type="button" class="btn" data-step="cols" data-delta="-1" aria-label="Fewer horizontal dots">&minus;</button>
+              <input id="cols" class="num-input" type="number" inputmode="numeric" min="2" max="20" step="1" required>
+              <button type="button" class="btn" data-step="cols" data-delta="1" aria-label="More horizontal dots">+</button>
+            </div>
+          </div>
+          <div class="dim">
+            <label for="rows">Vertical dots (height)</label>
+            <div class="stepper">
+              <button type="button" class="btn" data-step="rows" data-delta="-1" aria-label="Fewer vertical dots">&minus;</button>
+              <input id="rows" class="num-input" type="number" inputmode="numeric" min="2" max="20" step="1" required>
+              <button type="button" class="btn" data-step="rows" data-delta="1" aria-label="More vertical dots">+</button>
+            </div>
+          </div>
+        </div>
+        <div class="presets" aria-label="Board size presets">
+          <button type="button" class="btn" data-preset="4x4">4 &times; 4</button>
+          <button type="button" class="btn" data-preset="6x6">6 &times; 6</button>
+          <button type="button" class="btn" data-preset="8x6">8 &times; 6</button>
+          <button type="button" class="btn" data-preset="10x10">10 &times; 10</button>
+          <button type="button" class="btn" data-preset="10x11">10 &times; 11</button>
+          <button type="button" class="btn" data-preset="11x10">11 &times; 10</button>
+          <button type="button" class="btn" data-preset="12x12">12 &times; 12</button>
+        </div>
+        <p class="board-info" id="boardInfo" aria-live="polite"></p>
+      </fieldset>
+
+      <div id="setupError" class="error" role="alert" hidden></div>
+      <button type="submit" class="btn primary big">Start Game</button>
+    </form>
+
+    <details class="rules-box" id="setupRules">
+      <summary>How to play</summary>
+    </details>
+  </div>
+</main>
+
+<!-- ======================= GAME SCREEN ======================= -->
+<main id="game" hidden>
+  <header class="topbar">
+    <h2 class="brand">Dots and Boxes</h2>
+    <div class="toolbar" role="toolbar" aria-label="Game controls">
+      <button type="button" class="btn" id="undoBtn" title="Undo last move (Ctrl+Z)"><span aria-hidden="true">&#8630;</span><span class="label">Undo</span></button>
+      <button type="button" class="btn" id="restartBtn" title="Restart with the same players and board"><span aria-hidden="true">&#8635;</span><span class="label">Restart</span></button>
+      <button type="button" class="btn" id="newBtn" title="Back to setup"><span aria-hidden="true">&#10010;</span><span class="label">New Game</span></button>
+      <button type="button" class="btn icon" id="soundBtn" aria-pressed="true" title="Sound effects"><span aria-hidden="true" id="soundIcon">&#128266;</span><span class="label">Sound</span></button>
+      <button type="button" class="btn icon" id="animBtn" aria-pressed="true" title="Animations"><span aria-hidden="true">&#10024;</span><span class="label">Animations</span></button>
+      <button type="button" class="btn icon" id="rulesBtn" title="How to play"><span aria-hidden="true">?</span><span class="label">Rules</span></button>
+    </div>
+  </header>
+
+  <section id="scoreboard" class="scoreboard" aria-label="Scoreboard"></section>
+  <div id="status" class="status" aria-live="polite"></div>
+
+  <div class="board-wrap" id="boardWrap">
+    <svg id="board" xmlns="http://www.w3.org/2000/svg" tabindex="0" role="application"
+         aria-label="Game board. Use arrow keys to move between dots, and Shift plus an arrow key to draw a line."
+         aria-describedby="kbdHint"></svg>
+  </div>
+  <p class="hint kbd-hint" id="kbdHint">Click or tap between two dots to draw a line &middot; Keyboard: <strong>arrows</strong> move, <strong>Shift + arrow</strong> draws, <strong>Ctrl+Z</strong> undoes</p>
+</main>
+
+<div id="announcer" class="visually-hidden" aria-live="assertive"></div>
+
+<!-- ======================= DIALOGS ======================= -->
+<dialog id="confirmDialog" aria-labelledby="confirmTitle">
+  <form method="dialog">
+    <h2 id="confirmTitle">Are you sure?</h2>
+    <p id="confirmMsg"></p>
+    <div class="dlg-actions">
+      <button class="btn" value="cancel">Cancel</button>
+      <button class="btn danger" value="ok" id="confirmOk">Confirm</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="resultDialog" aria-labelledby="resultTitle">
+  <div class="result-head">
+    <div id="winnerSwatch" class="winner-swatch"></div>
+    <h2 id="resultTitle"></h2>
+    <p id="resultSub"></p>
+  </div>
+  <ol class="result-list" id="resultList"></ol>
+  <p class="total" id="resultTotal"></p>
+  <div class="dlg-actions stack">
+    <button type="button" class="btn" id="toSetupBtn">Return to Setup</button>
+    <button type="button" class="btn primary" id="playAgainBtn">Play Again</button>
+  </div>
+</dialog>
+
+<dialog id="rulesDialog" aria-labelledby="rulesTitle">
+  <h2 id="rulesTitle">How to play</h2>
+  <div id="rulesDialogBody"></div>
+  <div class="dlg-actions"><button type="button" class="btn primary" id="rulesClose">Got it</button></div>
+</dialog>
+
+<template id="rulesTpl">
+  <div class="rules">
+    <h3>Goal</h3>
+    <p>Claim more boxes than anyone else.</p>
+    <h3>Taking turns</h3>
+    <ol>
+      <li>On your turn, draw one line between two dots that are next to each other, either horizontally or vertically. Diagonal lines are not allowed.</li>
+      <li>Each line can only be drawn once.</li>
+      <li>If your line completes the fourth side of a box, you claim it: it fills with your colour and shows your initial.</li>
+      <li><strong>Complete a box and you play again.</strong> You keep going as long as each line you draw completes at least one box.</li>
+      <li>One line can complete two boxes at once, and you score both.</li>
+      <li>If your line completes no box, the turn passes to the next player.</li>
+    </ol>
+    <h3>Winning</h3>
+    <p>The game ends when every box has been claimed. Whoever has the most boxes wins. If two or more players share the top score, it's a tie.</p>
+    <h3>Tips</h3>
+    <ul>
+      <li>Avoid drawing the third side of a box, because that hands it to the next player.</li>
+      <li>Late in the game, try to make your opponents open up long chains of boxes for you.</li>
+    </ul>
+    <h3>Controls</h3>
+    <ul>
+      <li><strong>Mouse / touch:</strong> click or tap the gap between two dots.</li>
+      <li><strong>Keyboard:</strong> focus the board, move with <kbd>&larr;</kbd><kbd>&uarr;</kbd><kbd>&rarr;</kbd><kbd>&darr;</kbd>, and draw with <kbd>Shift</kbd> + arrow (or press <kbd>Enter</kbd> and then an arrow). <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes the last move.</li>
+    </ul>
+  </div>
+</template>
+
+<script>
+(() => {
+  'use strict';
+
+  /* =====================================================================
+   * GAME LOGIC (pure, no DOM)
+   * Lines:  h[r][c]  horizontal line from dot (r,c) to dot (r,c+1)   r: 0..rows-1, c: 0..cols-2
+   *         v[r][c]  vertical line from dot (r,c) to dot (r+1,c)     r: 0..rows-2, c: 0..cols-1
+   * Boxes:  boxes[r][c] box whose top-left dot is (r,c)               r: 0..rows-2, c: 0..cols-2
+   * Each cell holds -1 (empty) or the index of the player who drew or owns it.
+   * ===================================================================== */
+  const MIN_DOTS = 2, MAX_DOTS = 20;
+
+  function createGame(cols, rows, numPlayers) {
+    if (!Number.isInteger(cols) || !Number.isInteger(rows) || cols < MIN_DOTS || rows < MIN_DOTS || cols > MAX_DOTS || rows > MAX_DOTS) {
+      throw new RangeError('Invalid board size');
+    }
+    if (!Number.isInteger(numPlayers) || numPlayers < 2 || numPlayers > 4) throw new RangeError('Invalid player count');
+    const grid = (r, c) => Array.from({ length: r }, () => new Array(c).fill(-1));
+    return {
+      cols, rows, numPlayers,
+      h: grid(rows, cols - 1),
+      v: grid(rows - 1, cols),
+      boxes: grid(rows - 1, cols - 1),
+      scores: new Array(numPlayers).fill(0),
+      current: 0,
+      history: [],
+      totalBoxes: (rows - 1) * (cols - 1),
+      claimedCount: 0,
+      over: false
+    };
+  }
+
+  function edgeExists(g, type, r, c) {
+    if (!Number.isInteger(r) || !Number.isInteger(c)) return false;
+    if (type === 'h') return r >= 0 && r < g.rows && c >= 0 && c < g.cols - 1;
+    if (type === 'v') return r >= 0 && r < g.rows - 1 && c >= 0 && c < g.cols;
+    return false;
+  }
+  const lineGrid = (g, type) => (type === 'h' ? g.h : g.v);
+  const isDrawn = (g, type, r, c) => lineGrid(g, type)[r][c] !== -1;
+
+  function adjacentBoxes(g, type, r, c) {
+    const out = [];
+    if (type === 'h') {
+      if (r > 0) out.push([r - 1, c]);          // box above
+      if (r < g.rows - 1) out.push([r, c]);     // box below
+    } else {
+      if (c > 0) out.push([r, c - 1]);          // box left
+      if (c < g.cols - 1) out.push([r, c]);     // box right
+    }
+    return out;
+  }
+  const boxComplete = (g, r, c) =>
+    g.h[r][c] !== -1 && g.h[r + 1][c] !== -1 && g.v[r][c] !== -1 && g.v[r][c + 1] !== -1;
+
+  function playMove(g, type, r, c) {
+    if (g.over) return { ok: false, reason: 'over' };
+    if (!edgeExists(g, type, r, c)) return { ok: false, reason: 'invalid' };
+    if (isDrawn(g, type, r, c)) return { ok: false, reason: 'taken' };
+
+    const player = g.current;
+    lineGrid(g, type)[r][c] = player;
+    const claimed = [];
+    for (const [br, bc] of adjacentBoxes(g, type, r, c)) {
+      if (g.boxes[br][bc] === -1 && boxComplete(g, br, bc)) {
+        g.boxes[br][bc] = player;
+        claimed.push([br, bc]);
+      }
+    }
+    g.scores[player] += claimed.length;
+    g.claimedCount += claimed.length;
+    g.history.push({ type, r, c, player, claimed });
+
+    if (g.claimedCount === g.totalBoxes) g.over = true;
+    else if (claimed.length === 0) g.current = (player + 1) % g.numPlayers;
+    return { ok: true, player, claimed, extraTurn: claimed.length > 0 && !g.over, over: g.over };
+  }
+
+  function undoMove(g) {
+    const m = g.history.pop();
+    if (!m) return null;
+    lineGrid(g, m.type)[m.r][m.c] = -1;
+    for (const [br, bc] of m.claimed) g.boxes[br][bc] = -1;
+    g.scores[m.player] -= m.claimed.length;
+    g.claimedCount -= m.claimed.length;
+    g.current = m.player;
+    g.over = false;
+    return m;
+  }
+
+  function leaders(g) {
+    const max = Math.max(...g.scores);
+    return g.scores.map((s, i) => (s === max ? i : -1)).filter(i => i >= 0);
+  }
+
+  // Exposed so the logic can be tested from the console or automated tests.
+  window.DotsAndBoxes = { createGame, playMove, undoMove, leaders, edgeExists, MIN_DOTS, MAX_DOTS };
+
+  /* =====================================================================
+   * SETTINGS & STORAGE
+   * ===================================================================== */
+  const DEFAULT_COLORS = ['#2563eb', '#e11d48', '#16a34a', '#d97706'];
+  const STORAGE_KEY = 'dots-and-boxes:settings:v1';
+  const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const settings = {
+    numPlayers: 2,
+    players: DEFAULT_COLORS.map((color, i) => ({ name: `Player ${i + 1}`, color })),
+    cols: 6, rows: 6,
+    sound: true,
+    anim: !reducedMotion
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    if (saved && typeof saved === 'object') {
+      if ([2, 3, 4].includes(saved.numPlayers)) settings.numPlayers = saved.numPlayers;
+      if (Array.isArray(saved.players)) saved.players.slice(0, 4).forEach((p, i) => {
+        if (p && typeof p.name === 'string') settings.players[i].name = p.name.slice(0, 16);
+        if (p && /^#[0-9a-f]{6}$/i.test(p.color)) settings.players[i].color = p.color;
+      });
+      if (Number.isInteger(saved.cols) && saved.cols >= MIN_DOTS && saved.cols <= MAX_DOTS) settings.cols = saved.cols;
+      if (Number.isInteger(saved.rows) && saved.rows >= MIN_DOTS && saved.rows <= MAX_DOTS) settings.rows = saved.rows;
+      if (typeof saved.sound === 'boolean') settings.sound = saved.sound;
+      if (typeof saved.anim === 'boolean') settings.anim = saved.anim;
+    }
+  } catch (e) { /* storage unavailable: use defaults */ }
+  function saveSettings() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch (e) { /* ignore */ }
+  }
+
+  /* =====================================================================
+   * HELPERS
+   * ===================================================================== */
+  const $ = id => document.getElementById(id);
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs = {}, parent) {
+    const el = document.createElementNS(SVG_NS, tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(el);
+    return el;
+  }
+  function hexToRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function luminance(hex) {
+    const [r, g, b] = hexToRgb(hex).map(v => {
+      v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+  const textOn = hex => (luminance(hex) > 0.4 ? '#0f172a' : '#ffffff');
+  function colorDistance(a, b) {
+    const x = hexToRgb(a), y = hexToRgb(b);
+    return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]);
+  }
+
+  // Short label per player for inside boxes: initial, or more letters if initials clash.
+  function computeLabels(names) {
+    const clean = names.map(n => n.replace(/\s+/g, ''));
+    for (let len = 1; len <= 2; len++) {
+      const labels = clean.map(n => (n.slice(0, len) || '?').toUpperCase());
+      if (new Set(labels).size === labels.length) {
+        return labels.map(l => l.charAt(0) + l.slice(1).toLowerCase());
+      }
+    }
+    return names.map((_, i) => String(i + 1));
+  }
+
+  /* =====================================================================
+   * SOUND (Web Audio, no files)
+   * ===================================================================== */
+  let actx = null;
+  function tone(freq, dur, type = 'sine', vol = 0.08, delay = 0) {
+    if (!settings.sound) return;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      actx = actx || new AC();
+      if (actx.state === 'suspended') actx.resume();
+      const t = actx.currentTime + delay;
+      const o = actx.createOscillator(), gn = actx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t);
+      gn.gain.setValueAtTime(0.0001, t);
+      gn.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(gn).connect(actx.destination);
+      o.start(t); o.stop(t + dur + 0.03);
+    } catch (e) { /* audio not available */ }
+  }
+  const sfx = {
+    line: () => tone(520, 0.08, 'triangle', 0.07),
+    box: n => { tone(660, 0.12, 'sine', 0.09); tone(880, 0.16, 'sine', 0.09, 0.08); if (n > 1) tone(1175, 0.2, 'sine', 0.08, 0.16); },
+    error: () => tone(150, 0.12, 'square', 0.035),
+    undo: () => tone(330, 0.09, 'triangle', 0.06),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.25, 'sine', 0.08, i * 0.12))
+  };
+
+  /* =====================================================================
+   * SETUP SCREEN
+   * ===================================================================== */
+  const setupScreen = $('setup'), gameScreen = $('game');
+  const form = $('setupForm'), playerRows = $('playerRows');
+  const colsInput = $('cols'), rowsInput = $('rows');
+  const setupError = $('setupError'), boardInfo = $('boardInfo');
+
+  // Rules: same content on setup screen and in the in-game dialog
+  const rulesTpl = $('rulesTpl');
+  $('setupRules').appendChild(rulesTpl.content.cloneNode(true));
+  $('rulesDialogBody').appendChild(rulesTpl.content.cloneNode(true));
+
+  function renderPlayerRows() {
+    playerRows.textContent = '';
+    for (let i = 0; i < settings.numPlayers; i++) {
+      const p = settings.players[i];
+      const row = document.createElement('div');
+      row.className = 'player-row';
+      const num = document.createElement('span');
+      num.className = 'num'; num.textContent = i + 1; num.setAttribute('aria-hidden', 'true');
+      const color = document.createElement('input');
+      color.type = 'color'; color.className = 'color-input'; color.value = p.color;
+      color.setAttribute('aria-label', `Colour for player ${i + 1}`);
+      color.dataset.idx = i; color.dataset.field = 'color';
+      const name = document.createElement('input');
+      name.type = 'text'; name.className = 'text-input'; name.value = p.name; name.maxLength = 16;
+      name.placeholder = `Player ${i + 1}`; name.autocomplete = 'off';
+      name.setAttribute('aria-label', `Name of player ${i + 1}`);
+      name.dataset.idx = i; name.dataset.field = 'name';
+      row.append(num, color, name);
+      playerRows.appendChild(row);
+    }
+  }
+  playerRows.addEventListener('input', e => {
+    const t = e.target, i = Number(t.dataset.idx);
+    if (!t.dataset.field) return;
+    settings.players[i][t.dataset.field] = t.value;
+    t.removeAttribute('aria-invalid');
+  });
+
+  form.querySelectorAll('input[name="numPlayers"]').forEach(r => {
+    r.checked = Number(r.value) === settings.numPlayers;
+    r.addEventListener('change', () => { settings.numPlayers = Number(r.value); renderPlayerRows(); });
+  });
+
+  function updateBoardInfo() {
+    const c = Number(colsInput.value), r = Number(rowsInput.value);
+    if (Number.isInteger(c) && Number.isInteger(r) && c >= MIN_DOTS && r >= MIN_DOTS && c <= MAX_DOTS && r <= MAX_DOTS) {
+      const boxes = (c - 1) * (r - 1);
+      boardInfo.textContent = `${c} × ${r} dots: ${c - 1} × ${r - 1} grid, ${boxes} box${boxes === 1 ? '' : 'es'} to claim.`;
+    } else {
+      boardInfo.textContent = `Choose between ${MIN_DOTS} and ${MAX_DOTS} dots in each direction.`;
+    }
+  }
+  colsInput.value = settings.cols; rowsInput.value = settings.rows;
+  [colsInput, rowsInput].forEach(inp => inp.addEventListener('input', () => { inp.removeAttribute('aria-invalid'); updateBoardInfo(); }));
+  form.querySelectorAll('[data-step]').forEach(btn => btn.addEventListener('click', () => {
+    const inp = $(btn.dataset.step);
+    let v = parseInt(inp.value, 10);
+    if (!Number.isFinite(v)) v = 6;
+    v = Math.min(MAX_DOTS, Math.max(MIN_DOTS, v + Number(btn.dataset.delta)));
+    inp.value = v; inp.removeAttribute('aria-invalid'); updateBoardInfo();
+  }));
+  form.querySelectorAll('[data-preset]').forEach(btn => btn.addEventListener('click', () => {
+    const [c, r] = btn.dataset.preset.split('x');
+    colsInput.value = c; rowsInput.value = r;
+    colsInput.removeAttribute('aria-invalid'); rowsInput.removeAttribute('aria-invalid');
+    updateBoardInfo();
+  }));
+
+  function validateSetup() {
+    const errors = [];
+    let firstInvalid = null;
+    const mark = el => { el.setAttribute('aria-invalid', 'true'); firstInvalid = firstInvalid || el; };
+
+    for (const [inp, label] of [[colsInput, 'Horizontal dots'], [rowsInput, 'Vertical dots']]) {
+      const raw = inp.value.trim();
+      const v = Number(raw);
+      if (raw === '' || !Number.isInteger(v) || v < MIN_DOTS || v > MAX_DOTS) {
+        errors.push(`${label} must be a whole number from ${MIN_DOTS} to ${MAX_DOTS}.`);
+        mark(inp);
+      }
+    }
+
+    const n = settings.numPlayers;
+    const nameInputs = playerRows.querySelectorAll('.text-input');
+    const colorInputs = playerRows.querySelectorAll('.color-input');
+    const names = [];
+    for (let i = 0; i < n; i++) {
+      let nm = settings.players[i].name.trim().replace(/\s+/g, ' ');
+      if (!nm) { nm = `Player ${i + 1}`; nameInputs[i].value = nm; }
+      settings.players[i].name = nm;
+      names.push(nm.toLowerCase());
+    }
+    for (let i = 0; i < n; i++) {
+      if (names.indexOf(names[i]) !== i) {
+        errors.push(`Each player needs a different name ("${settings.players[i].name}" is used twice).`);
+        mark(nameInputs[i]);
+        break;
+      }
+    }
+    outer: for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        if (colorDistance(settings.players[i].color, settings.players[j].color) < 60) {
+          errors.push(`${settings.players[i].name} and ${settings.players[j].name} have colours that are too similar. Pick more distinct colours.`);
+          mark(colorInputs[j]);
+          break outer;
+        }
+      }
+    }
+    return { errors, firstInvalid };
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const { errors, firstInvalid } = validateSetup();
+    if (errors.length) {
+      setupError.innerHTML = '';
+      const ul = document.createElement('ul');
+      errors.forEach(msg => { const li = document.createElement('li'); li.textContent = msg; ul.appendChild(li); });
+      setupError.appendChild(ul);
+      setupError.hidden = false;
+      if (firstInvalid) firstInvalid.focus();
+      return;
+    }
+    setupError.hidden = true;
+    settings.cols = Number(colsInput.value);
+    settings.rows = Number(rowsInput.value);
+    saveSettings();
+    startGame();
+  });
+
+  /* =====================================================================
+   * GAME SCREEN
+   * ===================================================================== */
+  const S = 40, PAD = 22;              // spacing between dots and edge padding (SVG units)
+  const board = $('board'), scoreboard = $('scoreboard'), statusEl = $('status'), announcer = $('announcer');
+  let game = null, players = [], labels = [];
+  let layers = {}, hitMap = new Map();
+  let cursor = { r: 0, c: 0 }, pendingDraw = false;
+  let resultTimer = null;
+
+  function startGame() {
+    clearTimeout(resultTimer);
+    players = settings.players.slice(0, settings.numPlayers).map(p => ({ name: p.name, color: p.color }));
+    labels = computeLabels(players.map(p => p.name));
+    game = createGame(settings.cols, settings.rows, settings.numPlayers);
+    cursor = { r: 0, c: 0 }; pendingDraw = false;
+    setupScreen.hidden = true;
+    gameScreen.hidden = false;
+    buildBoard();
+    buildScoreboard();
+    refresh(null);
+    announce(`New game. ${game.cols} by ${game.rows} dots. ${players[0].name} goes first.`);
+  }
+
+  function dotX(c) { return PAD + c * S; }
+  function dotY(r) { return PAD + r * S; }
+  function edgeCoords(type, r, c) {
+    return type === 'h'
+      ? { x1: dotX(c), y1: dotY(r), x2: dotX(c + 1), y2: dotY(r) }
+      : { x1: dotX(c), y1: dotY(r), x2: dotX(c), y2: dotY(r + 1) };
+  }
+
+  function buildBoard() {
+    board.textContent = '';
+    hitMap.clear();
+    const W = PAD * 2 + (game.cols - 1) * S, H = PAD * 2 + (game.rows - 1) * S;
+    board.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    board.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    // Cap the zoom (about 2.2x, so dots are at most ~88px apart) so small boards don't look oversized.
+    board.style.maxWidth = `${W * 2.2}px`;
+    board.style.maxHeight = `${H * 2.2}px`;
+
+    layers.guides = svgEl('g', { 'aria-hidden': 'true' }, board);
+    layers.boxes = svgEl('g', { 'aria-hidden': 'true' }, board);
+    layers.lines = svgEl('g', { 'aria-hidden': 'true' }, board);
+    layers.preview = svgEl('line', { class: 'preview', visibility: 'hidden' }, board);
+    layers.dots = svgEl('g', { 'aria-hidden': 'true' }, board);
+    layers.hits = svgEl('g', {}, board);
+    layers.cursor = svgEl('circle', { class: 'cursor', r: 11 }, board);
+
+    const half = S / 2;
+    const addEdge = (type, r, c) => {
+      const e = edgeCoords(type, r, c);
+      svgEl('line', { class: 'guide', ...e }, layers.guides);
+      // Diamond-shaped hit area: together these tile the whole board, so every
+      // click lands on the nearest line slot, which keeps small boards easy to tap.
+      const mx = (e.x1 + e.x2) / 2, my = (e.y1 + e.y2) / 2;
+      const pts = type === 'h'
+        ? `${e.x1},${e.y1} ${mx},${my - half} ${e.x2},${e.y2} ${mx},${my + half}`
+        : `${e.x1},${e.y1} ${mx - half},${my} ${e.x2},${e.y2} ${mx + half},${my}`;
+      const hit = svgEl('polygon', { class: 'hit', points: pts, 'data-type': type, 'data-r': r, 'data-c': c }, layers.hits);
+      hitMap.set(`${type}-${r}-${c}`, hit);
+    };
+    for (let r = 0; r < game.rows; r++) for (let c = 0; c < game.cols - 1; c++) addEdge('h', r, c);
+    for (let r = 0; r < game.rows - 1; r++) for (let c = 0; c < game.cols; c++) addEdge('v', r, c);
+    for (let r = 0; r < game.rows; r++) for (let c = 0; c < game.cols; c++) {
+      svgEl('circle', { class: 'dot', cx: dotX(c), cy: dotY(r), r: 4.5 }, layers.dots);
+    }
+    placeCursor();
+  }
+
+  function buildScoreboard() {
+    scoreboard.textContent = '';
+    players.forEach((p, i) => {
+      const card = document.createElement('div');
+      card.className = 'player-card';
+      card.style.setProperty('--pc', p.color);
+      card.dataset.idx = i;
+      card.innerHTML = '<span class="turn-badge">Turn</span><span class="swatch" aria-hidden="true"></span><span class="pname"></span><span class="pscore">0</span>';
+      card.querySelector('.pname').textContent = p.name;
+      card.querySelector('.pname').title = p.name;
+      scoreboard.appendChild(card);
+    });
+  }
+
+  // Redraw lines, boxes, scoreboard and status from the game state.
+  function refresh(lastResult) {
+    const last = game.history[game.history.length - 1];
+    const animate = lastResult && lastResult.ok && settings.anim;
+
+    // Lines
+    layers.lines.textContent = '';
+    const drawLine = (type, r, c, owner) => {
+      const isLast = last && last.type === type && last.r === r && last.c === c;
+      const cls = 'edge' + (isLast ? ' last' : '') + (isLast && animate ? ' draw' : '');
+      const el = svgEl('line', { class: cls, ...edgeCoords(type, r, c), pathLength: 1 }, layers.lines);
+      if (isLast) el.style.stroke = players[owner].color;
+    };
+    for (let r = 0; r < game.rows; r++) for (let c = 0; c < game.cols - 1; c++) if (game.h[r][c] !== -1) drawLine('h', r, c, game.h[r][c]);
+    for (let r = 0; r < game.rows - 1; r++) for (let c = 0; c < game.cols; c++) if (game.v[r][c] !== -1) drawLine('v', r, c, game.v[r][c]);
+
+    // Hit areas reflect taken state
+    hitMap.forEach((el, key) => {
+      const [type, r, c] = key.split('-');
+      el.classList.toggle('taken', isDrawn(game, type, Number(r), Number(c)));
+    });
+
+    // Boxes
+    layers.boxes.textContent = '';
+    const fresh = new Set((animate && last ? last.claimed : []).map(([r, c]) => `${r}-${c}`));
+    const inset = 5;
+    const longest = Math.max(...labels.map(l => l.length));
+    const fontSize = longest > 1 ? 15 : 19;
+    for (let r = 0; r < game.rows - 1; r++) for (let c = 0; c < game.cols - 1; c++) {
+      const owner = game.boxes[r][c];
+      if (owner === -1) continue;
+      const g = svgEl('g', { class: 'box' + (fresh.has(`${r}-${c}`) ? ' pop' : '') }, layers.boxes);
+      svgEl('rect', { x: dotX(c) + inset, y: dotY(r) + inset, width: S - inset * 2, height: S - inset * 2, rx: 5, fill: players[owner].color }, g);
+      const t = svgEl('text', { class: 'box-label', x: dotX(c) + S / 2, y: dotY(r) + S / 2 + 1, 'font-size': fontSize, fill: textOn(players[owner].color) }, g);
+      t.textContent = labels[owner];
+    }
+
+    // Scoreboard
+    scoreboard.querySelectorAll('.player-card').forEach((card, i) => {
+      const active = !game.over && i === game.current;
+      card.classList.toggle('active', active);
+      if (active) card.setAttribute('aria-current', 'true'); else card.removeAttribute('aria-current');
+      card.querySelector('.pscore').textContent = game.scores[i];
+      card.setAttribute('aria-label', `${players[i].name}: ${game.scores[i]} box${game.scores[i] === 1 ? '' : 'es'}${active ? ', current turn' : ''}`);
+      card.classList.remove('bump');
+    });
+    if (animate && last.claimed.length) {
+      const card = scoreboard.children[last.player];
+      void card.offsetWidth; // restart animation
+      card.classList.add('bump');
+    }
+
+    renderStatus(lastResult);
+    $('undoBtn').disabled = game.history.length === 0 || game.over;
+    hidePreview();
+  }
+
+  function swatch(color) {
+    const s = document.createElement('span');
+    s.className = 'swatch'; s.style.background = color; s.setAttribute('aria-hidden', 'true');
+    return s;
+  }
+  function renderStatus(lastResult) {
+    statusEl.textContent = '';
+    if (game.over) {
+      const lead = leaders(game);
+      const txt = document.createElement('span');
+      txt.textContent = lead.length > 1 ? 'Game over: it\'s a tie!' : `Game over: ${players[lead[0]].name} wins!`;
+      const btn = document.createElement('button');
+      btn.className = 'link'; btn.type = 'button'; btn.textContent = 'View results';
+      btn.addEventListener('click', showResult);
+      statusEl.append(txt, btn);
+      return;
+    }
+    const p = players[game.current];
+    const txt = document.createElement('span');
+    if (lastResult && lastResult.extraTurn) {
+      const n = lastResult.claimed.length;
+      txt.textContent = `${p.name} completed ${n === 2 ? 'two boxes' : 'a box'}. Go again!`;
+    } else {
+      txt.textContent = `${p.name}'s turn`;
+    }
+    if (pendingDraw) txt.textContent += ' (press an arrow key to draw)';
+    statusEl.append(swatch(p.color), txt);
+  }
+
+  function announce(msg) {
+    announcer.textContent = '';
+    setTimeout(() => { announcer.textContent = msg; }, 30);
+  }
+
+  function attemptMove(type, r, c) {
+    if (!game || game.over) return;
+    const res = playMove(game, type, r, c);
+    if (!res.ok) {
+      if (res.reason === 'taken') {
+        sfx.error();
+        if (settings.anim) { board.classList.remove('shake'); void board.offsetWidth; board.classList.add('shake'); }
+        announce('That line has already been drawn.');
+      }
+      return;
+    }
+    if (res.claimed.length) sfx.box(res.claimed.length); else sfx.line();
+    refresh(res);
+
+    const who = players[res.player].name;
+    let msg = `${who} drew a line.`;
+    if (res.claimed.length) msg += ` ${who} claimed ${res.claimed.length === 2 ? 'two boxes' : 'a box'} and now has ${game.scores[res.player]}.`;
+    if (res.over) msg += ' All boxes are claimed. Game over.';
+    else msg += res.extraTurn ? ` ${who} goes again.` : ` ${players[game.current].name}'s turn.`;
+    announce(msg);
+
+    if (res.over) {
+      clearTimeout(resultTimer);
+      resultTimer = setTimeout(() => { sfx.win(); showResult(); }, settings.anim ? 650 : 150);
+    }
+  }
+
+  // ---- Pointer input ----
+  board.addEventListener('click', e => {
+    const hit = e.target.closest && e.target.closest('.hit');
+    if (!hit) return;
+    board.classList.remove('kbd');
+    attemptMove(hit.dataset.type, Number(hit.dataset.r), Number(hit.dataset.c));
+  });
+  board.addEventListener('pointerover', e => {
+    if (e.pointerType === 'touch' || !game || game.over) return;
+    const hit = e.target.closest && e.target.closest('.hit');
+    if (!hit) { hidePreview(); return; }
+    const { type } = hit.dataset, r = Number(hit.dataset.r), c = Number(hit.dataset.c);
+    if (isDrawn(game, type, r, c)) { hidePreview(); return; }
+    showPreview(type, r, c);
+  });
+  board.addEventListener('pointerleave', hidePreview);
+  function showPreview(type, r, c) {
+    const e = edgeCoords(type, r, c);
+    for (const k in e) layers.preview.setAttribute(k, e[k]);
+    layers.preview.style.stroke = players[game.current].color;
+    layers.preview.setAttribute('visibility', 'visible');
+  }
+  function hidePreview() { if (layers.preview) layers.preview.setAttribute('visibility', 'hidden'); }
+
+  // ---- Keyboard input ----
+  function placeCursor() {
+    layers.cursor.setAttribute('cx', dotX(cursor.c));
+    layers.cursor.setAttribute('cy', dotY(cursor.r));
+    layers.cursor.classList.toggle('pending', pendingDraw);
+  }
+  const DIRS = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+  board.addEventListener('keydown', e => {
+    if (!game) return;
+    board.classList.add('kbd');
+    const d = DIRS[e.key];
+    if (d) {
+      e.preventDefault();
+      const tr = cursor.r + d[0], tc = cursor.c + d[1];
+      if (e.shiftKey || pendingDraw) {
+        pendingDraw = false;
+        if (tr >= 0 && tr < game.rows && tc >= 0 && tc < game.cols) {
+          if (d[0] === 0) attemptMove('h', cursor.r, Math.min(cursor.c, tc));
+          else attemptMove('v', Math.min(cursor.r, tr), cursor.c);
+        } else sfx.error();
+        placeCursor(); renderStatus(null);
+      } else {
+        cursor.r = Math.min(game.rows - 1, Math.max(0, tr));
+        cursor.c = Math.min(game.cols - 1, Math.max(0, tc));
+        placeCursor();
+        announce(`Dot row ${cursor.r + 1}, column ${cursor.c + 1}`);
+      }
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (game.over) return;
+      pendingDraw = !pendingDraw;
+      placeCursor(); renderStatus(null);
+      if (pendingDraw) announce('Choose a direction with an arrow key to draw a line.');
+    } else if (e.key === 'Escape' && pendingDraw) {
+      pendingDraw = false; placeCursor(); renderStatus(null);
+    }
+  });
+  document.addEventListener('keydown', e => {
+    if (gameScreen.hidden || document.querySelector('dialog[open]')) return;
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); doUndo(); }
+  });
+
+  // ---- Toolbar ----
+  function doUndo() {
+    if (!game || game.over || !game.history.length) return;
+    const m = undoMove(game);
+    sfx.undo();
+    refresh(null);
+    announce(`Undid ${players[m.player].name}'s last line. ${players[game.current].name}'s turn.`);
+  }
+  $('undoBtn').addEventListener('click', doUndo);
+
+  const confirmDialog = $('confirmDialog');
+  function confirmAction(title, msg, okLabel) {
+    return new Promise(resolve => {
+      $('confirmTitle').textContent = title;
+      $('confirmMsg').textContent = msg;
+      $('confirmOk').textContent = okLabel;
+      confirmDialog.returnValue = '';
+      confirmDialog.addEventListener('close', () => resolve(confirmDialog.returnValue === 'ok'), { once: true });
+      confirmDialog.showModal();
+    });
+  }
+  const inProgress = () => game && game.history.length > 0 && !game.over;
+
+  $('restartBtn').addEventListener('click', async () => {
+    if (inProgress() && !(await confirmAction('Restart game?', 'The board will be cleared and all scores reset. Players and board size stay the same.', 'Restart'))) return;
+    startGame();
+  });
+  $('newBtn').addEventListener('click', async () => {
+    if (inProgress() && !(await confirmAction('Start a new game?', 'The current game will be lost and you will return to the setup screen.', 'New Game'))) return;
+    goToSetup();
+  });
+
+  function goToSetup() {
+    clearTimeout(resultTimer);
+    if (resultDialog.open) resultDialog.close();
+    game = null;
+    gameScreen.hidden = true;
+    setupScreen.hidden = false;
+    colsInput.value = settings.cols; rowsInput.value = settings.rows;
+    renderPlayerRows(); updateBoardInfo();
+    window.scrollTo(0, 0);
+  }
+
+  function syncToggles() {
+    $('soundBtn').setAttribute('aria-pressed', String(settings.sound));
+    $('soundIcon').innerHTML = settings.sound ? '&#128266;' : '&#128263;';
+    $('soundBtn').title = settings.sound ? 'Sound on (click to mute)' : 'Sound off (click to enable)';
+    $('animBtn').setAttribute('aria-pressed', String(settings.anim));
+    $('animBtn').title = settings.anim ? 'Animations on' : 'Animations off';
+    document.body.classList.toggle('anim', settings.anim);
+  }
+  $('soundBtn').addEventListener('click', () => { settings.sound = !settings.sound; saveSettings(); syncToggles(); sfx.line(); });
+  $('animBtn').addEventListener('click', () => { settings.anim = !settings.anim; saveSettings(); syncToggles(); });
+
+  const rulesDialog = $('rulesDialog');
+  $('rulesBtn').addEventListener('click', () => rulesDialog.showModal());
+  $('rulesClose').addEventListener('click', () => rulesDialog.close());
+
+  // ---- Result screen ----
+  const resultDialog = $('resultDialog');
+  function showResult() {
+    if (!game || !game.over) return;
+    const lead = leaders(game);
+    const sw = $('winnerSwatch');
+    sw.className = 'winner-swatch';
+    sw.style.background = '';
+    if (lead.length === 1) {
+      const w = players[lead[0]];
+      sw.style.background = w.color; sw.style.color = textOn(w.color); sw.textContent = labels[lead[0]];
+      $('resultTitle').textContent = `${w.name} wins!`;
+      $('resultTitle').style.color = w.color;
+      $('resultSub').textContent = `${w.name} claimed ${game.scores[lead[0]]} of ${game.totalBoxes} boxes.`;
+    } else {
+      sw.classList.add('tie'); sw.textContent = '';
+      sw.style.setProperty('--c1', players[lead[0]].color);
+      sw.style.setProperty('--c2', players[lead[1]].color);
+      $('resultTitle').textContent = 'It\'s a tie!';
+      $('resultTitle').style.color = '';
+      const names = lead.map(i => players[i].name);
+      const list = names.length === 2 ? names.join(' and ') : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+      $('resultSub').textContent = `${list} share the top score with ${game.scores[lead[0]]} boxes each.`;
+    }
+    const ol = $('resultList');
+    ol.textContent = '';
+    const order = players.map((_, i) => i).sort((a, b) => game.scores[b] - game.scores[a] || a - b);
+    let rank = 0, prev = null;
+    order.forEach((i, pos) => {
+      if (game.scores[i] !== prev) { rank = pos + 1; prev = game.scores[i]; }
+      const li = document.createElement('li');
+      if (lead.includes(i)) li.className = 'top';
+      const rk = document.createElement('span'); rk.className = 'rank'; rk.textContent = rank;
+      const nm = document.createElement('span'); nm.className = 'n'; nm.textContent = players[i].name;
+      const sc = document.createElement('span'); sc.className = 's'; sc.textContent = game.scores[i];
+      li.append(rk, swatch(players[i].color), nm, sc);
+      li.setAttribute('aria-label', `Rank ${rank}: ${players[i].name}, ${game.scores[i]} boxes`);
+      ol.appendChild(li);
+    });
+    $('resultTotal').textContent = `Total squares on the board: ${game.totalBoxes} (${game.cols} × ${game.rows} dots)`;
+    if (!resultDialog.open) resultDialog.showModal();
+    $('playAgainBtn').focus();
+  }
+  $('playAgainBtn').addEventListener('click', () => { resultDialog.close(); startGame(); });
+  $('toSetupBtn').addEventListener('click', () => { resultDialog.close(); goToSetup(); });
+
+  // ---- Init ----
+  renderPlayerRows();
+  updateBoardInfo();
+  syncToggles();
+})();
+</script>
+</body>
+</html>
