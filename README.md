@@ -43,14 +43,43 @@ Every player is a person by default (pass-and-play on one device). Any player ca
 
 ## Files
 
+Plain `<script>` tags (not ES modules), so the game still opens straight from the file system. Each file is small and has one job.
+
 ```
-index.html          page markup
-css/style.css       styles and themes
-js/engine.js        game rules (no DOM; also runs in Node)
-js/ai.js            computer players (no DOM; also runs in Node)
-js/app.js           user interface
+index.html              page markup, loads the files below in order
+
+css/
+  base.css              design tokens, light/dark/paper themes, buttons, form controls
+  setup.css             setup screen: steps, board preview, player rows
+  game.css              game screen: top bar, scoreboard, status, move history, replay bar
+  board.css             the SVG board: dots, lines, boxes, animations
+  dialogs.css           dialogs, results, statistics, toast, confetti
+
+js/
+  engine.js             game rules (pure logic, no DOM, also runs in Node)
+  ai/
+    model.js            fast flat-array board model the AI can change and undo
+    chains.js           finds chains/loops and solves the endgame
+    ai.js               move choice for Easy / Medium / Hard
+  ui/                   (all share the window.DAB namespace)
+    core.js             constants, helpers, storage; loaded first
+    settings.js         settings, themes, settings dialog
+    feedback.js         sound, vibration, toast, screen-reader messages, confetti
+    dialogs.js          dialog open/close, confirm prompt, rules text
+    state.js            current game state, save/resume, statistics
+    board.js            board drawing (incremental) and mouse/touch/keyboard input
+    hud.js              scoreboard, status, score bar, move history, button states
+    game.js             turns, computer moves, timer, undo/redo, hint, toolbar, shortcuts
+    results.js          results dialog, replay, statistics dialog
+    setup.js            two-step setup, player symbols, resume card, animated logo
+    main.js             start-up; loaded last
+
 tests/engine-ai.test.js
 ```
+
+### Performance
+
+The board is updated incrementally. Each game builds the dots and tap areas once. After every move, only the line and boxes that changed are added or removed; nothing is redrawn from scratch. On a 20×20 board late in the game, a move takes about 3 ms (it was about 10 ms when the whole board was redrawn).
 
 ## Tests
 

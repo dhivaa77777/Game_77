@@ -2,7 +2,7 @@
 'use strict';
 const path = require('path');
 const E = require(path.join(__dirname, '..', 'js', 'engine.js'));
-const AI = require(path.join(__dirname, '..', 'js', 'ai.js'));
+const AI = require(path.join(__dirname, '..', 'js', 'ai', 'ai.js'));
 
 let failures = 0;
 const check = (cond, msg) => { if (!cond) { failures++; console.log('FAIL ' + msg); } };
