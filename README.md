@@ -4,9 +4,16 @@ The classic pencil-and-paper game in the browser. Plain HTML, CSS and JavaScript
 
 **To play:** open `index.html` in any modern browser. It works straight from the file system and offline.
 
+## How a game is set up
+
+1. **Board:** choose the number of dots across and down (2–20 each, square or rectangular). A live preview shows the grid and how many boxes it makes.
+2. **Players:** choose 2, 3 or 4 players and type their names. Each player gets a colour and a **symbol**. The symbol is filled in from the name (Ravi → **R**). If two names start with the same letter, two letters are used (Alice, Amir → **Al**, **Am**). You can type your own letter or emoji instead. When a player joins the four dots around a box, the box fills with their colour and symbol.
+
+Every player is a person by default (pass-and-play on one device). Any player can be switched to a computer opponent.
+
 ## Features
 
-- **2–4 players** with custom names and colours. Any player can be a human or a computer player.
+- **2–4 players** with names, colours and symbols. Any player can be a person or the computer.
 - **Computer opponents** at three levels:
   - *Easy*: makes mistakes.
   - *Medium*: never gives away a box it doesn't have to.

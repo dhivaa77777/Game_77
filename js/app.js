@@ -26,14 +26,14 @@
   const CPU_NAMES = ['Ada', 'Bolt', 'Cog', 'Dash'];
   const TYPES = ['human', 'easy', 'medium', 'hard'];
   const TYPE_LABEL = { human: 'Human', easy: 'Computer · Easy', medium: 'Computer · Medium', hard: 'Computer · Hard' };
-  const TYPE_SHORT = { human: 'Human', easy: '🤖 Easy', medium: '🤖 Medium', hard: '🤖 Hard' };
+  const TYPE_SHORT = { human: 'Person', easy: '🤖 Easy', medium: '🤖 Medium', hard: '🤖 Hard' };
   const SPEED_MS = { slow: 950, normal: 520, fast: 170 };
   const THEMES = ['light', 'dark', 'paper', 'auto'];
   const reducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   const settings = {
     numPlayers: 2,
-    players: DEFAULT_COLORS.map((color, i) => ({ name: `Player ${i + 1}`, color, type: 'human' })),
+    players: DEFAULT_COLORS.map((color, i) => ({ name: `Player ${i + 1}`, color, type: 'human', symbol: '', symbolAuto: true })),
     cols: 6, rows: 6,
     sound: true, haptics: true, anim: !reducedMotion, assist: false,
     theme: 'light', speed: 'normal', timer: 0
@@ -47,6 +47,9 @@
       if (typeof p.name === 'string') settings.players[i].name = p.name.slice(0, 16);
       if (/^#[0-9a-f]{6}$/i.test(p.color)) settings.players[i].color = p.color;
       if (TYPES.includes(p.type)) settings.players[i].type = p.type;
+      if (typeof p.symbol === 'string' && p.symbol && p.symbol.length <= 16 && p.symbolAuto === false) {
+        settings.players[i].symbol = p.symbol; settings.players[i].symbolAuto = false;
+      }
     });
     if (E.validSize(s.cols)) settings.cols = s.cols;
     if (E.validSize(s.rows)) settings.rows = s.rows;
@@ -201,6 +204,44 @@
   const isDefaultHumanName = (name, i) => !name.trim() || name.trim() === `Player ${i + 1}`;
   const isDefaultCpuName = (name, i) => name.trim() === CPU_NAMES[i];
 
+  /* ---------- Player symbols (shown inside the boxes a player claims) ---------- */
+  const segmenter = (typeof Intl !== 'undefined' && Intl.Segmenter) ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+  const graphemes = str => (segmenter ? Array.from(segmenter.segment(str), x => x.segment) : Array.from(str));
+  const MAX_SYMBOL = 2;
+  const capFirst = g => g.charAt(0).toUpperCase() + g.slice(1);
+
+  /** Possible automatic symbols for a name, best first: "Ravi" → R, Ra; "Ravi Kumar" → R, RK, Ra. */
+  function symbolCandidates(name, i) {
+    const t = name.trim();
+    const words = t.split(/\s+/).filter(Boolean);
+    const letters = graphemes(t.replace(/\s+/g, ''));
+    const out = [];
+    if (letters.length) out.push(letters[0].toUpperCase());
+    if (words.length > 1) out.push((graphemes(words[0])[0] + graphemes(words[1])[0]).toUpperCase());
+    if (letters.length > 1) out.push(capFirst(letters[0].toUpperCase() + letters[1].toLowerCase()));
+    out.push(String(i + 1));
+    return out;
+  }
+  /** Fill in symbols for players who haven't typed their own, keeping all symbols different. */
+  function refreshAutoSymbols() {
+    const ps = settings.players.slice(0, settings.numPlayers);
+    const taken = new Set(ps.filter(p => !p.symbolAuto && p.symbol).map(p => p.symbol.toLowerCase()));
+    const firsts = ps.map((p, i) => (p.symbolAuto ? symbolCandidates(p.name || `Player ${i + 1}`, i)[0].toLowerCase() : null));
+    ps.forEach((p, i) => {
+      if (!p.symbolAuto) return;
+      const cands = symbolCandidates(p.name || `Player ${i + 1}`, i);
+      let chosen = cands.find(c => !taken.has(c.toLowerCase()) && !firsts.some((f, j) => j !== i && f === c.toLowerCase()));
+      if (!chosen) chosen = cands.find(c => !taken.has(c.toLowerCase())) || String(i + 1);
+      p.symbol = chosen;
+      taken.add(chosen.toLowerCase());
+    });
+    playerRows.querySelectorAll('.symbol-input').forEach(inp => {
+      const p = settings.players[Number(inp.dataset.idx)];
+      if (p.symbolAuto && document.activeElement !== inp) inp.value = p.symbol;
+      if (p.symbolAuto) inp.placeholder = p.symbol;
+    });
+  }
+
   function setPlayerType(i, type) {
     const p = settings.players[i];
     const wasHuman = p.type === 'human';
@@ -223,53 +264,55 @@
       color.dataset.idx = i; color.dataset.field = 'color';
       const name = document.createElement('input');
       name.type = 'text'; name.className = 'text-input'; name.value = p.name; name.maxLength = 16;
-      name.placeholder = `Player ${i + 1}`; name.autocomplete = 'off'; name.spellcheck = false;
+      name.placeholder = `Player ${i + 1} name`; name.autocomplete = 'off'; name.spellcheck = false;
       name.setAttribute('aria-label', `Name of player ${i + 1}`);
       name.dataset.idx = i; name.dataset.field = 'name';
+      const sym = document.createElement('input');
+      sym.type = 'text'; sym.className = 'text-input symbol-input'; sym.value = p.symbol || '';
+      sym.autocomplete = 'off'; sym.spellcheck = false;
+      sym.setAttribute('aria-label', `Symbol for player ${i + 1}, shown in boxes they claim`);
+      sym.title = 'Symbol shown in boxes this player claims (1–2 letters or an emoji)';
+      sym.dataset.idx = i; sym.dataset.field = 'symbol';
       const type = document.createElement('select');
       type.className = 'select'; type.dataset.idx = i; type.dataset.field = 'type';
-      type.setAttribute('aria-label', `Player ${i + 1} is controlled by`);
+      type.setAttribute('aria-label', `Player ${i + 1} is played by`);
       for (const t of TYPES) {
         const o = document.createElement('option');
-        o.value = t; o.textContent = TYPE_LABEL[t]; o.selected = p.type === t;
+        o.value = t; o.textContent = t === 'human' ? 'Person' : TYPE_LABEL[t]; o.selected = p.type === t;
         type.appendChild(o);
       }
-      row.append(num, color, name, type);
+      row.append(num, color, name, sym, type);
       playerRows.appendChild(row);
     }
-    syncModeButtons();
+    refreshAutoSymbols();
   }
   playerRows.addEventListener('input', e => {
     const t = e.target, i = Number(t.dataset.idx);
-    if (!t.dataset.field || t.dataset.field === 'type') return;
-    settings.players[i][t.dataset.field] = t.value;
+    const f = t.dataset.field;
+    if (!f || f === 'type') return;
+    const p = settings.players[i];
     t.removeAttribute('aria-invalid');
+    if (f === 'symbol') {
+      const g = graphemes(t.value.replace(/\s+/g, ''));
+      if (g.length > MAX_SYMBOL) t.value = g.slice(0, MAX_SYMBOL).join('');
+      const v = t.value.replace(/\s+/g, '');
+      p.symbolAuto = v === '';
+      if (v) p.symbol = v;
+    } else {
+      p[f] = t.value;
+    }
+    refreshAutoSymbols();
+  });
+  playerRows.addEventListener('focusout', e => {
+    if (e.target.dataset.field === 'symbol') refreshAutoSymbols();
   });
   playerRows.addEventListener('change', e => {
     const t = e.target;
     if (t.dataset.field !== 'type') return;
     const i = Number(t.dataset.idx);
     setPlayerType(i, t.value);
-    const nameInput = playerRows.querySelector(`.text-input[data-idx="${i}"]`);
-    nameInput.value = settings.players[i].name;
-    syncModeButtons();
-  });
-
-  function syncModeButtons() {
-    const anyCpu = settings.players.slice(0, settings.numPlayers).some(p => p.type !== 'human');
-    $('modeLocal').setAttribute('aria-pressed', String(!anyCpu));
-    $('modeCpu').setAttribute('aria-pressed', String(anyCpu));
-  }
-  $('modeLocal').addEventListener('click', () => {
-    for (let i = 0; i < 4; i++) setPlayerType(i, 'human');
-    renderPlayerRows();
-  });
-  $('modeCpu').addEventListener('click', () => {
-    const existing = settings.players.slice(1, settings.numPlayers).find(p => p.type !== 'human');
-    const level = existing ? existing.type : 'medium';
-    setPlayerType(0, 'human');
-    for (let i = 1; i < 4; i++) if (settings.players[i].type === 'human') setPlayerType(i, level);
-    renderPlayerRows();
+    playerRows.querySelector(`.text-input[data-idx="${i}"]`).value = settings.players[i].name;
+    refreshAutoSymbols();
   });
 
   form.querySelectorAll('input[name="numPlayers"]').forEach(r => {
@@ -277,52 +320,113 @@
     r.addEventListener('change', () => { settings.numPlayers = Number(r.value); renderPlayerRows(); });
   });
 
-  function updateBoardInfo() {
+  /* ---------- Step 1: board size with live preview ---------- */
+  function readDims() {
     const c = Number(colsInput.value), r = Number(rowsInput.value);
-    if (E.validSize(c) && E.validSize(r)) {
+    return { c, r, ok: colsInput.value.trim() !== '' && rowsInput.value.trim() !== '' && E.validSize(c) && E.validSize(r) };
+  }
+  function renderPreview() {
+    const svg = $('boardPreview');
+    svg.textContent = '';
+    const { c, r, ok } = readDims();
+    if (!ok) return;
+    const sp = 20, pad = 18;
+    const W = pad * 2 + (c - 1) * sp, H = pad * 2 + (r - 1) * sp;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    for (let y = 0; y < r; y++) svgEl('line', { class: 'pg', x1: pad, y1: pad + y * sp, x2: pad + (c - 1) * sp, y2: pad + y * sp }, svg);
+    for (let x = 0; x < c; x++) svgEl('line', { class: 'pg', x1: pad + x * sp, y1: pad, x2: pad + x * sp, y2: pad + (r - 1) * sp }, svg);
+    for (let y = 0; y < r; y++) for (let x = 0; x < c; x++) svgEl('circle', { class: 'pd', cx: pad + x * sp, cy: pad + y * sp, r: 3 }, svg);
+    const t1 = svgEl('text', { class: 'pdim', x: W / 2, y: 11 }, svg); t1.textContent = `${c} across`;
+    const t2 = svgEl('text', { class: 'pdim', x: 9, y: H / 2, transform: `rotate(-90 9 ${H / 2})` }, svg); t2.textContent = `${r} down`;
+    svg.setAttribute('aria-label', `Board preview: ${c} dots across by ${r} dots down`);
+  }
+  function updateBoardInfo() {
+    const { c, r, ok } = readDims();
+    if (ok) {
       const boxes = (c - 1) * (r - 1);
       const lines = r * (c - 1) + (r - 1) * c;
-      const est = Math.max(1, Math.round(lines * 2.2 / 60));
-      boardInfo.textContent = `${c} × ${r} dots: ${plural(boxes, 'box', 'boxes')} to claim, ${lines} lines. About ${est} min to play.`;
+      boardInfo.textContent = `${c} dots across × ${r} dots down = ${plural(boxes, 'box', 'boxes')} to claim (${lines} lines to draw).`;
     } else {
       boardInfo.textContent = `Choose between ${E.MIN_DOTS} and ${E.MAX_DOTS} dots in each direction.`;
     }
+    renderPreview();
   }
-  [colsInput, rowsInput].forEach(inp => inp.addEventListener('input', () => { inp.removeAttribute('aria-invalid'); updateBoardInfo(); }));
+  [colsInput, rowsInput].forEach(inp => inp.addEventListener('input', () => { inp.removeAttribute('aria-invalid'); $('step1Error').hidden = true; updateBoardInfo(); }));
   form.querySelectorAll('[data-step]').forEach(btn => btn.addEventListener('click', () => {
     const inp = $(btn.dataset.step);
     let v = parseInt(inp.value, 10);
     if (!Number.isFinite(v)) v = 6;
     inp.value = clamp(v + Number(btn.dataset.delta), E.MIN_DOTS, E.MAX_DOTS);
     inp.removeAttribute('aria-invalid');
+    $('step1Error').hidden = true;
     updateBoardInfo();
   }));
   form.querySelectorAll('[data-preset]').forEach(btn => btn.addEventListener('click', () => {
     const [c, r] = btn.dataset.preset.split('x');
     colsInput.value = c; rowsInput.value = r;
     colsInput.removeAttribute('aria-invalid'); rowsInput.removeAttribute('aria-invalid');
+    $('step1Error').hidden = true;
     updateBoardInfo();
   }));
+
+  function validateDims() {
+    const errors = [];
+    let firstInvalid = null;
+    for (const [inp, label] of [[colsInput, 'Horizontal dots'], [rowsInput, 'Vertical dots']]) {
+      const raw = inp.value.trim();
+      if (raw === '' || !E.validSize(Number(raw))) {
+        errors.push(`${label} must be a whole number from ${E.MIN_DOTS} to ${E.MAX_DOTS}.`);
+        inp.setAttribute('aria-invalid', 'true');
+        firstInvalid = firstInvalid || inp;
+      }
+    }
+    return { errors, firstInvalid };
+  }
+  function showErrors(box, errors, firstInvalid) {
+    box.textContent = '';
+    const ul = document.createElement('ul');
+    errors.forEach(msg => { const li = document.createElement('li'); li.textContent = msg; ul.appendChild(li); });
+    box.appendChild(ul);
+    box.hidden = false;
+    if (firstInvalid) firstInvalid.focus();
+  }
+  function showStep(n) {
+    $('step1').hidden = n !== 1;
+    $('step2').hidden = n !== 2;
+    $('stepTab1').className = n === 1 ? 'current' : 'done';
+    $('stepTab2').className = n === 2 ? 'current' : '';
+    if (n === 2) {
+      $('boardChip').textContent = `${colsInput.value} × ${rowsInput.value} dots (${plural((colsInput.value - 1) * (rowsInput.value - 1), 'box', 'boxes')})`;
+      renderPlayerRows();
+    }
+    const card = document.querySelector('.setup-card');
+    if (card.getBoundingClientRect().top < 0) card.scrollIntoView({ block: 'start' });
+  }
+  $('nextBtn').addEventListener('click', () => {
+    const { errors, firstInvalid } = validateDims();
+    if (errors.length) { showErrors($('step1Error'), errors, firstInvalid); return; }
+    $('step1Error').hidden = true;
+    settings.cols = Number(colsInput.value);
+    settings.rows = Number(rowsInput.value);
+    saveSettings();
+    showStep(2);
+    const firstName = playerRows.querySelector('.text-input');
+    if (firstName) firstName.focus();
+  });
+  $('backBtn').addEventListener('click', () => { setupError.hidden = true; showStep(1); colsInput.focus(); });
 
   // Options on the setup page share state with the settings dialog
   $('setupTimer').addEventListener('change', e => { settings.timer = Number(e.target.value); saveSettings(); syncSettingsUI(); });
   $('setupSpeed').addEventListener('change', e => { settings.speed = e.target.value; saveSettings(); syncSettingsUI(); });
   $('setupAssist').addEventListener('change', e => { settings.assist = e.target.checked; saveSettings(); syncSettingsUI(); });
 
-  function validateSetup() {
+  function validatePlayers() {
     const errors = [];
     let firstInvalid = null;
     const mark = el => { el.setAttribute('aria-invalid', 'true'); firstInvalid = firstInvalid || el; };
-
-    for (const [inp, label] of [[colsInput, 'Horizontal dots'], [rowsInput, 'Vertical dots']]) {
-      const raw = inp.value.trim();
-      if (raw === '' || !E.validSize(Number(raw))) {
-        errors.push(`${label} must be a whole number from ${E.MIN_DOTS} to ${E.MAX_DOTS}.`);
-        mark(inp);
-      }
-    }
     const n = settings.numPlayers;
-    const nameInputs = playerRows.querySelectorAll('.text-input');
+    const nameInputs = playerRows.querySelectorAll('.text-input:not(.symbol-input)');
+    const symInputs = playerRows.querySelectorAll('.symbol-input');
     const colorInputs = playerRows.querySelectorAll('.color-input');
     const names = [];
     for (let i = 0; i < n; i++) {
@@ -331,10 +435,20 @@
       settings.players[i].name = nm;
       names.push(nm.toLowerCase());
     }
+    refreshAutoSymbols();
     for (let i = 0; i < n; i++) {
       if (names.indexOf(names[i]) !== i) {
         errors.push(`Each player needs a different name ("${settings.players[i].name}" is used twice).`);
         mark(nameInputs[i]);
+        break;
+      }
+    }
+    const syms = settings.players.slice(0, n).map(p => (p.symbol || '').toLowerCase());
+    for (let i = 0; i < n; i++) {
+      if (!syms[i]) { errors.push(`Player ${i + 1} needs a symbol.`); mark(symInputs[i]); break; }
+      if (syms.indexOf(syms[i]) !== i) {
+        errors.push(`Each player needs a different symbol ("${settings.players[i].symbol}" is used twice).`);
+        mark(symInputs[i]);
         break;
       }
     }
@@ -352,16 +466,11 @@
 
   form.addEventListener('submit', async e => {
     e.preventDefault();
-    const { errors, firstInvalid } = validateSetup();
-    if (errors.length) {
-      setupError.textContent = '';
-      const ul = document.createElement('ul');
-      errors.forEach(msg => { const li = document.createElement('li'); li.textContent = msg; ul.appendChild(li); });
-      setupError.appendChild(ul);
-      setupError.hidden = false;
-      if (firstInvalid) firstInvalid.focus();
-      return;
-    }
+    if ($('step2').hidden) { $('nextBtn').click(); return; } // Enter on step 1 = Next
+    const dims = validateDims();
+    if (dims.errors.length) { showStep(1); showErrors($('step1Error'), dims.errors, dims.firstInvalid); return; }
+    const { errors, firstInvalid } = validatePlayers();
+    if (errors.length) { showErrors(setupError, errors, firstInvalid); return; }
     setupError.hidden = true;
     settings.cols = Number(colsInput.value);
     settings.rows = Number(rowsInput.value);
@@ -369,7 +478,7 @@
     if (store.get(KEYS.save) && !(await confirmAction('Start a new game?', 'You have a saved game in progress. Starting a new game will replace it.', 'Start new game'))) return;
     startGame({
       cols: settings.cols, rows: settings.rows,
-      players: settings.players.slice(0, settings.numPlayers).map(p => ({ name: p.name, color: p.color, type: p.type }))
+      players: settings.players.slice(0, settings.numPlayers).map(p => ({ name: p.name, color: p.color, type: p.type, symbol: p.symbol }))
     });
   });
 
@@ -451,7 +560,7 @@
     if (!s || s.v !== 2 || !s.cfg || !Array.isArray(s.moves) || !Array.isArray(s.cfg.players)) return null;
     const c = s.cfg;
     if (!E.validSize(c.cols) || !E.validSize(c.rows) || c.players.length < 2 || c.players.length > 4) return null;
-    if (!c.players.every(p => p && typeof p.name === 'string' && /^#[0-9a-f]{6}$/i.test(p.color) && TYPES.includes(p.type))) return null;
+    if (!c.players.every(p => p && typeof p.name === 'string' && /^#[0-9a-f]{6}$/i.test(p.color) && TYPES.includes(p.type) && (p.symbol === undefined || (typeof p.symbol === 'string' && p.symbol.length <= 16)))) return null;
     try {
       const g = E.replay(c.cols, c.rows, c.players.length, s.moves);
       if (g.over) return null;
@@ -552,7 +661,8 @@
     stopAll();
     cfg = { cols: config.cols, rows: config.rows, players: config.players.map(p => ({ ...p })) };
     players = cfg.players;
-    labels = computeLabels(players.map(p => p.name));
+    const fallback = computeLabels(players.map(p => p.name));
+    labels = players.map((p, i) => (typeof p.symbol === 'string' && p.symbol.trim() ? p.symbol.trim() : fallback[i]));
     game = save ? save.game : E.createGame(cfg.cols, cfg.rows, players.length);
     gameStart = save ? save.start : Date.now();
     hintsUsed = save ? save.hints : 0;
@@ -683,7 +793,7 @@
     layers.boxes.textContent = '';
     const fresh = new Set((animate && last ? last.claimed : []).map(([r, c]) => `${r}-${c}`));
     const inset = 5;
-    const fontSize = Math.max(...labels.map(l => l.length)) > 1 ? 15 : 19;
+    const fontSize = Math.max(...labels.map(l => graphemes(l).length)) > 1 ? 15 : 19;
     for (let r = 0; r < game.rows - 1; r++) for (let c = 0; c < game.cols - 1; c++) {
       const owner = game.boxes[r][c];
       if (owner === -1) continue;
@@ -1114,7 +1224,7 @@
     setupScreen.hidden = false;
     colsInput.value = settings.cols; rowsInput.value = settings.rows;
     form.querySelectorAll('input[name="numPlayers"]').forEach(r => { r.checked = Number(r.value) === settings.numPlayers; });
-    renderPlayerRows();
+    showStep(1);
     updateBoardInfo();
     renderResumeCard();
     logoStart();

@@ -43,7 +43,7 @@
     <div class="hero">
       <svg class="hero-logo" id="heroLogo" viewBox="0 0 156 112" aria-hidden="true"></svg>
       <h1 class="title">Dots and Boxes</h1>
-      <p class="tagline">The classic pencil-and-paper game. Play with friends on one device or take on the computer.</p>
+      <p class="tagline">The classic pencil-and-paper game for 2&ndash;4 players on one device.</p>
     </div>
 
     <div class="resume-card" id="resumeCard" hidden>
@@ -55,30 +55,19 @@
     </div>
 
     <form id="setupForm" novalidate>
-      <div class="modes" role="group" aria-label="Game mode">
-        <button type="button" class="mode-btn" id="modeLocal" aria-pressed="true"><span class="ico" aria-hidden="true">👥</span><span><strong>Pass &amp; Play</strong><small>Everyone plays on this device</small></span></button>
-        <button type="button" class="mode-btn" id="modeCpu" aria-pressed="false"><span class="ico" aria-hidden="true">🤖</span><span><strong>vs Computer</strong><small>You against the computer</small></span></button>
-      </div>
+      <ol class="steps" aria-label="Setup steps">
+        <li id="stepTab1" class="current"><span class="sn">1</span>Board</li>
+        <li class="bar" aria-hidden="true"></li>
+        <li id="stepTab2"><span class="sn">2</span>Players</li>
+      </ol>
 
-      <fieldset>
-        <legend>Number of players</legend>
-        <div class="seg" role="radiogroup" aria-label="Number of players">
-          <label><input type="radio" name="numPlayers" value="2"><span>2</span></label>
-          <label><input type="radio" name="numPlayers" value="3"><span>3</span></label>
-          <label><input type="radio" name="numPlayers" value="4"><span>4</span></label>
-        </div>
-      </fieldset>
-
-      <fieldset>
-        <legend>Players</legend>
-        <div id="playerRows"></div>
-      </fieldset>
-
-      <fieldset>
-        <legend>Board size (in dots)</legend>
+      <!-- STEP 1: board size -->
+      <section id="step1" aria-labelledby="step1Title">
+        <h2 class="step-title" id="step1Title">How many dots?</h2>
+        <p class="step-sub">First choose the dots across and down. The board is built from them.</p>
         <div class="dims">
           <div class="dim">
-            <label for="cols">Horizontal dots (width)</label>
+            <label for="cols">Horizontal dots (across)</label>
             <div class="stepper">
               <button type="button" class="btn" data-step="cols" data-delta="-1" aria-label="Fewer horizontal dots">&minus;</button>
               <input id="cols" class="num-input" type="number" inputmode="numeric" min="2" max="20" step="1" required>
@@ -86,7 +75,7 @@
             </div>
           </div>
           <div class="dim">
-            <label for="rows">Vertical dots (height)</label>
+            <label for="rows">Vertical dots (down)</label>
             <div class="stepper">
               <button type="button" class="btn" data-step="rows" data-delta="-1" aria-label="Fewer vertical dots">&minus;</button>
               <input id="rows" class="num-input" type="number" inputmode="numeric" min="2" max="20" step="1" required>
@@ -95,39 +84,68 @@
           </div>
         </div>
         <div class="presets" aria-label="Board size presets">
-          <button type="button" class="btn small" data-preset="4x4">4 × 4 · Quick</button>
+          <button type="button" class="btn small" data-preset="4x4">4 × 4</button>
           <button type="button" class="btn small" data-preset="6x6">6 × 6</button>
           <button type="button" class="btn small" data-preset="8x6">8 × 6</button>
           <button type="button" class="btn small" data-preset="10x10">10 × 10</button>
           <button type="button" class="btn small" data-preset="10x11">10 × 11</button>
           <button type="button" class="btn small" data-preset="11x10">11 × 10</button>
-          <button type="button" class="btn small" data-preset="12x12">12 × 12 · Epic</button>
+          <button type="button" class="btn small" data-preset="12x12">12 × 12</button>
         </div>
+        <div class="preview-wrap"><svg id="boardPreview" role="img" aria-label="Board preview"></svg></div>
         <p class="board-info" id="boardInfo" aria-live="polite"></p>
-      </fieldset>
+        <div id="step1Error" class="error" role="alert" hidden></div>
+        <button type="button" class="btn primary big" id="nextBtn">Next: add players &rarr;</button>
+      </section>
 
-      <fieldset>
-        <legend>Options</legend>
-        <div class="options-grid">
-          <label class="opt">Turn timer
-            <select class="select" id="setupTimer">
-              <option value="0">Off</option><option value="10">10 seconds</option><option value="20">20 seconds</option><option value="30">30 seconds</option><option value="60">60 seconds</option>
-            </select>
-          </label>
-          <label class="opt">Computer speed
-            <select class="select" id="setupSpeed">
-              <option value="slow">Relaxed</option><option value="normal">Normal</option><option value="fast">Fast</option>
-            </select>
-          </label>
+      <!-- STEP 2: players -->
+      <section id="step2" aria-labelledby="step2Title" hidden>
+        <div class="board-chip">
+          <span><span aria-hidden="true">⠿</span> Board: <strong id="boardChip"></strong></span>
+          <button type="button" class="btn small" id="backBtn">&larr; Change</button>
         </div>
-        <label class="switch" style="margin-top:6px">
-          <span class="sw-text">Assist mode<small>Highlights boxes that can be taken and warns before you give one away.</small></span>
-          <input type="checkbox" id="setupAssist"><span class="track" aria-hidden="true"></span>
-        </label>
-      </fieldset>
+        <h2 class="step-title" id="step2Title">Who's playing?</h2>
+        <p class="step-sub">Type each player's name. When a player joins the four dots around a box, the box is marked with their symbol. The symbol is filled in from the name, and you can change it to any letter or emoji.</p>
 
-      <div id="setupError" class="error" role="alert" hidden></div>
-      <button type="submit" class="btn primary big">Start Game</button>
+        <fieldset>
+          <legend>Number of players</legend>
+          <div class="seg" role="radiogroup" aria-label="Number of players">
+            <label><input type="radio" name="numPlayers" value="2"><span>2 players</span></label>
+            <label><input type="radio" name="numPlayers" value="3"><span>3 players</span></label>
+            <label><input type="radio" name="numPlayers" value="4"><span>4 players</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Players</legend>
+          <div class="player-head" aria-hidden="true"><span></span><span>Colour</span><span>Name</span><span>Symbol</span><span>Played by</span></div>
+          <div id="playerRows"></div>
+          <p class="field-note">Every player is a person by default (pass the device around). To practise alone, set a player to <em>Computer</em>.</p>
+        </fieldset>
+
+        <details class="more-options">
+          <summary>More options</summary>
+          <div class="options-grid">
+            <label class="opt">Turn timer
+              <select class="select" id="setupTimer">
+                <option value="0">Off</option><option value="10">10 seconds</option><option value="20">20 seconds</option><option value="30">30 seconds</option><option value="60">60 seconds</option>
+              </select>
+            </label>
+            <label class="opt">Computer speed
+              <select class="select" id="setupSpeed">
+                <option value="slow">Relaxed</option><option value="normal">Normal</option><option value="fast">Fast</option>
+              </select>
+            </label>
+          </div>
+          <label class="switch" style="margin-top:6px">
+            <span class="sw-text">Assist mode<small>Highlights boxes that can be taken and warns before you give one away.</small></span>
+            <input type="checkbox" id="setupAssist"><span class="track" aria-hidden="true"></span>
+          </label>
+        </details>
+
+        <div id="setupError" class="error" role="alert" hidden></div>
+        <button type="submit" class="btn primary big">Start Game</button>
+      </section>
     </form>
 
     <details class="rules-box" id="setupRules">
