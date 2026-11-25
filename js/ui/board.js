@@ -83,13 +83,20 @@
   }
 
   /* ---------- Incremental updates ---------- */
+  /** Every drawn line keeps the colour of the player who drew it, for the whole game. */
   function syncLine(type, r, c, owner, isLast, animate) {
     const k = edgeKey(type, r, c);
     let el = lineEls.get(k);
     if (owner !== -1 && !el) {
       el = svgEl('line', { class: 'edge' + (isLast && animate ? ' draw' : ''), ...edgeCoords(type, r, c), pathLength: 1 }, layers.lines);
+      el.style.stroke = st.players[owner].color;
+      el.dataset.owner = owner;
       lineEls.set(k, el);
       hits.get(k).classList.add('taken');
+    } else if (owner !== -1 && el.dataset.owner !== String(owner)) {
+      // Same slot, different player (e.g. after undo and a new move): recolour it.
+      el.style.stroke = st.players[owner].color;
+      el.dataset.owner = owner;
     } else if (owner === -1 && el) {
       el.remove();
       lineEls.delete(k);
@@ -138,14 +145,14 @@
     for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols - 1; c++) syncLine('h', r, c, g.h[r][c], newLastKey === edgeKey('h', r, c), animate);
     for (let r = 0; r < g.rows - 1; r++) for (let c = 0; c < g.cols; c++) syncLine('v', r, c, g.v[r][c], newLastKey === edgeKey('v', r, c), animate);
 
-    // The most recent line is drawn in the colour of the player who drew it.
-    if (lastKey !== newLastKey || newLastKey) {
+    // The most recent line is drawn a little thicker so the last move is easy to spot.
+    if (lastKey !== newLastKey) {
       const prev = lastKey && lineEls.get(lastKey);
-      if (prev) { prev.classList.remove('last'); prev.style.stroke = ''; }
-      const cur = newLastKey && lineEls.get(newLastKey);
-      if (cur) { cur.classList.add('last'); cur.style.stroke = st.players[last.player].color; }
+      if (prev) prev.classList.remove('last');
       lastKey = newLastKey;
     }
+    const cur = newLastKey && lineEls.get(newLastKey);
+    if (cur) cur.classList.add('last');
 
     for (let r = 0; r < g.rows - 1; r++) for (let c = 0; c < g.cols - 1; c++) syncBox(r, c, g.boxes[r][c], fresh.has(`${r}-${c}`));
 

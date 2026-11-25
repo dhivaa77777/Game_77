@@ -4,7 +4,7 @@
    ========================================================= */
 .guide { stroke: var(--guide); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 2 5; }
 .edge { stroke: var(--line); stroke-width: 6; stroke-linecap: round; }
-.edge.last { stroke-width: 7.5; }
+.edge.last { stroke-width: 8.5; }
 .dot { fill: var(--dot); }
 .preview { stroke-width: 6; stroke-linecap: round; opacity: .45; pointer-events: none; }
 .preview.warn { stroke-dasharray: .12 .1; opacity: .8; }

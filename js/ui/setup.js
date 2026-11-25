@@ -348,7 +348,10 @@
       }
       for (const e of allEdges) {
         const x1 = P + e.c * S, y1 = P + e.r * S;
-        svgEl('line', { class: E.isDrawn(g, e.type, e.r, e.c) ? 'l' : 'g', x1, y1, x2: e.type === 'h' ? x1 + S : x1, y2: e.type === 'h' ? y1 : y1 + S }, frag);
+        const owner = (e.type === 'h' ? g.h : g.v)[e.r][e.c];
+        const attrs = { class: owner !== -1 ? 'l' : 'g', x1, y1, x2: e.type === 'h' ? x1 + S : x1, y2: e.type === 'h' ? y1 : y1 + S };
+        if (owner !== -1) attrs.style = `stroke:${LOGO_COLORS[owner]}`; // lines keep their player's colour
+        svgEl('line', attrs, frag);
       }
       for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) svgEl('circle', { class: 'd', cx: P + c * S, cy: P + r * S, r: 4.5 }, frag);
       logo.textContent = '';
