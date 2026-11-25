@@ -3,7 +3,7 @@
    Top bar, side panel (scoreboard, status, score bar, move history), replay bar, layout.
    ========================================================= */
 #game {
-  height: 100vh; height: 100dvh; display: flex; flex-direction: column; gap: 10px;
+  height: 100%; display: flex; flex-direction: column; gap: 10px;
   padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   max-width: 1400px; margin: 0 auto;
 }

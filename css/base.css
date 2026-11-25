@@ -65,9 +65,8 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; }
+html, body { margin: 0; height: 100%; }
 body {
-  min-height: 100vh; min-height: 100dvh;
   background: var(--bg); color: var(--text);
   font-family: var(--font); font-size: 16px; line-height: 1.5;
   -webkit-tap-highlight-color: transparent;

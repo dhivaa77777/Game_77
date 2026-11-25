@@ -247,10 +247,14 @@
   $('fullBtn').hidden = !fsSupported;
   function toggleFullscreen() {
     if (!fsSupported) return;
+    // Some embedded views refuse full screen; ignore that quietly (it returns a rejected promise).
     try {
-      if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-      else (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen).call(document.documentElement);
-    } catch (e) { /* ignore */ }
+      const el = document.documentElement;
+      const p = (document.fullscreenElement || document.webkitFullscreenElement)
+        ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+        : (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+      if (p && p.catch) p.catch(() => toast('Full screen is not available here'));
+    } catch (e) { toast('Full screen is not available here'); }
   }
 
   $('undoBtn').addEventListener('click', undo);
